@@ -9,6 +9,7 @@ import Controls from '../components/controls/controls'
 import Background from '../components/background'
 import MiniMap from '../components/miniMap'
 import MathQuestionScene from './mathQuestionScene'
+
 var createLabel = function (scene, text) {
   return scene.rexUI.add.label({
       // width: 40,
@@ -30,7 +31,7 @@ var createLabel = function (scene, text) {
 }
 
 
-var askFullscreen = false;
+var askFullscreen = true;
 
 let questionVisible = false;
 
@@ -91,7 +92,7 @@ export default class MainScene extends Phaser.Scene {
     if(!musicRunning) {
       this.music = this.sound.add('music', {
         loop: true,
-        volume: 0.5
+        volume: 0.15
       });
       this.music.play();
       musicRunning = true;
@@ -164,6 +165,7 @@ export default class MainScene extends Phaser.Scene {
           button.getElement('background').setStrokeStyle();
       }).on('button.click', (button, groupName, index) => {
         if(button.text == "Yes") {
+          this.game.scale.fullscreenTarget = document.body;
           this.game.scale.startFullscreen();
           this.scale.updateBounds();
         }
@@ -184,7 +186,7 @@ export default class MainScene extends Phaser.Scene {
 
       if(enemy.getData("questionAsked") != "true" && !questionVisible) {
         questionVisible = true;
-        this.sound.play('player_attacks');
+        try { this.sound.play('player_attacks'); } catch(e) {}
         enemy.setData("questionAsked", "true");
         console.log("open question");
         const answerCorrect = await this.askQuestion(1);
@@ -216,7 +218,7 @@ export default class MainScene extends Phaser.Scene {
  
         if(successful) {
           player.halt()
-          this.sound.play('level_completes')
+          try { this.sound.play('level_completes'); } catch(e) {}
           goal.nextLevel(this, this.level)
         } else {
           player.kill()

@@ -1,4 +1,7 @@
 
+import { ECANCELED } from 'constants';
+import Swal from 'sweetalert2';
+
 var createLabel = function (scene, text) {
     return scene.rexUI.add.label({
         background: scene.rexUI.add.roundRectangle(0, 0, 100, 40, 20, 0x6a4f4b),
@@ -54,32 +57,15 @@ export default class MathQuestionScene extends Phaser.Scene {
         var operation = (window as any).operation;
         console.log(maxResultSize, operation);
         var correctInitialColumn = getRandomIntInclusive(0, NUM_COLUMNS - 1);
-        this.currentCorrectAnswer = getRandomIntInclusive(1, (window as any).maxResultSize);
+        /* MATH CORE BEGIN */
         var firstFactor, secondFactor, symbol;
-        if(operation != null)
-            operation = operation.trim();
+        var retrievedQuestion = (window as any).getNextMathQuestion();
+        firstFactor = retrievedQuestion.operands[0];
+        secondFactor = retrievedQuestion.operands[1];
+        symbol = (window as any).mathSymbol;
+        this.currentCorrectAnswer = retrievedQuestion.currentCorrectAnswer;
         
-        if(operation == "add") {
-            symbol = "+";
-            firstFactor = getRandomIntInclusive(1, this.currentCorrectAnswer);
-            secondFactor = this.currentCorrectAnswer - firstFactor;
-        } else if(operation == "subtract") {
-            symbol = "-";
-            this.currentCorrectAnswer = getRandomIntInclusive(1, (window as any).maxResultSize);
-            secondFactor = getRandomIntInclusive(1, (window as any).maxResultSize);
-            firstFactor = this.currentCorrectAnswer + secondFactor;
-        } else if(operation == "multiply") {
-            symbol = "×";
-            firstFactor = getRandomIntInclusive(1, (window as any).maxResultSize);
-            secondFactor = getRandomIntInclusive(1, (window as any).maxResultSize);
-            this.currentCorrectAnswer = firstFactor * secondFactor;
-        } else if(operation == "divide") {
-            var divisor = getRandomIntInclusive(2, 6);
-            firstFactor = this.currentCorrectAnswer * divisor;
-            secondFactor = divisor;
-            symbol = "/";
-        } else
-            window.alert("Unknown ?operation");
+        /* MATH CORE END */
         
         var incorrectAnswers: number[] = [];
         for(var i = 0; i < (NUM_COLUMNS-1); i++) {
@@ -90,9 +76,50 @@ export default class MathQuestionScene extends Phaser.Scene {
             incorrectAnswers.push(value);
         }
         let columns: number[] = [];
+        let inputOptions = {};
         for(var i = 0; i < NUM_COLUMNS; i++) {
             columns[i] = i == correctInitialColumn ? this.currentCorrectAnswer : (incorrectAnswers.pop() as number)
+            inputOptions[columns[i].toString()] = columns[i].toString();
         }
+        
+        
+        if(window.innerHeight < 400) {
+            Swal.fire({
+                title: `${firstFactor} ${symbol} ${secondFactor} = ?`,
+                text: `(${data.num-1} question${(data.num-1) == 1 ? '' : 's'} left to answer after this)`,
+                input: 'select',
+                allowEnterKey: false,
+                allowEscapeKey: false,
+                allowOutsideClick: false,
+                inputOptions,
+    
+            }).then(obj => {
+                this.events.emit("answer_click", { text: (obj as any).value.toString() });
+            })
+        } else {
+            Swal.fire({
+                title: `${firstFactor} ${symbol} ${secondFactor} = ?`,
+                text: `(${data.num-1} question${(data.num-1) == 1 ? '' : 's'} left to answer after this)`,
+                html: columns.sort((a, b) => a - b).map(i => '<button type="button" role="button" tabindex="-1" class="swal2-confirm swal2-question-choice swal2-styled">' + i.toString() + '</button>').join(''),
+                focusConfirm: false,
+                showConfirmButton: false,
+                allowEnterKey: false,
+                allowEscapeKey: false,
+                allowOutsideClick: false,
+                customClass: {
+                    content: 'swal2-question-content'
+                },
+                onOpen: (element) => {
+                    element.querySelectorAll(".swal2-question-choice").forEach(button => button.addEventListener("click", (e) => {
+                        const button: HTMLButtonElement = e.currentTarget! as HTMLButtonElement;
+                        this.events.emit("answer_click", { text: button.textContent!.toString() });
+                        Swal.close();
+                    }));
+                }
+            });
+        }
+        
+        /*
         var dialog = this.rexUI.add.dialog({
             anchor: {
                 centerX: 'center',
@@ -144,13 +171,14 @@ export default class MathQuestionScene extends Phaser.Scene {
         .on('button.out', function (button, groupName, index) {
             button.getElement('background').setStrokeStyle();
         });
+        */
     }
     async getQuestionAnswer(): Promise<boolean> {
         return new Promise(resolve => this.events.once('answer_click', async(button) => {
             let correct = parseInt(button.text) == this.currentCorrectAnswer;
-            this.sound.play(`player_answers_${correct ? "correct" : "incorrect"}ly`);
+            try { this.sound.play(`player_answers_${correct ? "correct" : "incorrect"}ly`); } catch(e) {}
             if(!correct) {
-                await new Promise(resolve => {
+                await new Promise<void>(resolve => {
                     var infoDialog = this.rexUI.add.dialog({
                         anchor: {
                             centerX: 'center',
@@ -185,10 +213,10 @@ export default class MathQuestionScene extends Phaser.Scene {
                             content: 25,
                             action: 15,
             
-                            left: 20,
-                            right: 20,
-                            top: 20,
-                            bottom: 20,
+                            left: 10,
+                            right: 10,
+                            top: 10,
+                            bottom: 10,
                         },
             
                         align: {
